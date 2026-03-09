@@ -10,20 +10,21 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private String email;
 
-    @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private UserRole role;
+
     private String sector;
 
-    public User() {
-    }
+    private String squad;
+
+    public User() {}
 
     public Long getId() {
         return id;
@@ -41,12 +42,16 @@ public class User {
         return password;
     }
 
+    public UserRole getRole() {
+        return role;
+    }
+
     public String getSector() {
         return sector;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public String getSquad() {
+        return squad;
     }
 
     public void setName(String name) {
@@ -61,7 +66,15 @@ public class User {
         this.password = password;
     }
 
+    public void setRole(UserRole role) {
+        this.role = role;
+    }
+
     public void setSector(String sector) {
         this.sector = sector;
+    }
+
+    public void setSquad(String squad) {
+        this.squad = squad;
     }
 }

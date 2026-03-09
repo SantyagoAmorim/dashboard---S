@@ -1,5 +1,7 @@
 package com.agency.dashboard.ui;
 
+import com.agency.dashboard.domain.User;
+import com.agency.dashboard.domain.UserRole;
 import com.agency.dashboard.service.CurrentUserService;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.button.Button;
@@ -15,8 +17,9 @@ public class MainLayout extends AppLayout {
         title.getStyle().set("font-size", "var(--lumo-font-size-l)").set("margin", "0");
 
         Span userName = new Span();
-        if (currentUserService.getCurrentUser() != null) {
-            userName.setText("Olá, " + currentUserService.getCurrentUser().getName());
+        User currentUser = currentUserService.getCurrentUser();
+        if (currentUser != null) {
+            userName.setText("Olá, " + currentUser.getName());
         }
 
         Button logoutButton = new Button("Sair", event -> {
@@ -35,11 +38,23 @@ public class MainLayout extends AppLayout {
 
         addToNavbar(header);
 
-        HorizontalLayout nav = new HorizontalLayout(
-                new RouterLink("Dashboard", DashboardView.class),
-                new RouterLink("Pedidos", RequestsView.class)
-        );
+        HorizontalLayout nav = new HorizontalLayout();
         nav.setPadding(true);
+        nav.setSpacing(true);
+
+        nav.add(
+                new RouterLink("Dashboard", DashboardView.class),
+                new RouterLink("Pedidos", RequestsView.class),
+                new RouterLink("Clientes", ClientsView.class),
+                new RouterLink("Tarefas", TasksView.class),
+                new RouterLink("Onboarding Tráfego", TrafficOnboardingView.class),
+                new RouterLink("Anúncios Tráfego", TrafficAdsView.class)
+        );
+
+        if (currentUser != null && (currentUser.getRole() == UserRole.ADMIN || currentUser.getRole() == UserRole.MANAGEMENT)) {
+            nav.add(new RouterLink("Usuários", UsersView.class));
+        }
+
         addToDrawer(nav);
     }
 }

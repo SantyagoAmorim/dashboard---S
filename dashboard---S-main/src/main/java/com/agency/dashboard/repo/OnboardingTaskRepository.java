@@ -4,7 +4,9 @@ import com.agency.dashboard.domain.Client;
 import com.agency.dashboard.domain.OnboardingTask;
 import com.agency.dashboard.domain.OnboardingTaskStatus;
 import com.agency.dashboard.domain.OnboardingTaskType;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 
 import java.util.List;
 
@@ -31,4 +33,8 @@ public interface OnboardingTaskRepository extends JpaRepository<OnboardingTask, 
             OnboardingTaskStatus status,
             OnboardingTaskType taskType
     );
+
+    @Modifying
+    @Transactional
+    void deleteByClient(Client client);
 }

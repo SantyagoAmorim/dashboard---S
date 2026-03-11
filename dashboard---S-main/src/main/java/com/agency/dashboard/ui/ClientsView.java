@@ -5,7 +5,9 @@ import com.agency.dashboard.domain.ClientPlan;
 import com.agency.dashboard.domain.ClientSector;
 import com.agency.dashboard.domain.Task;
 import com.agency.dashboard.repo.ClientRepository;
+import com.agency.dashboard.repo.OnboardingTaskRepository;
 import com.agency.dashboard.repo.TaskRepository;
+import com.agency.dashboard.repo.TrafficAdTaskRepository;
 import com.agency.dashboard.service.OnboardingService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Checkbox;
@@ -31,17 +33,24 @@ public class ClientsView extends VerticalLayout {
 
     private final ClientRepository clientRepository;
     private final TaskRepository taskRepository;
+    private final OnboardingTaskRepository onboardingTaskRepository;
+    private final TrafficAdTaskRepository trafficAdTaskRepository;
     private final OnboardingService onboardingService;
+
     private final Grid<Client> grid = new Grid<>(Client.class, false);
 
     public ClientsView(
             ClientRepository clientRepository,
             TaskRepository taskRepository,
-            OnboardingService onboardingService
+            OnboardingService onboardingService,
+            OnboardingTaskRepository onboardingTaskRepository,
+            TrafficAdTaskRepository trafficAdTaskRepository
     ) {
         this.clientRepository = clientRepository;
         this.taskRepository = taskRepository;
         this.onboardingService = onboardingService;
+        this.onboardingTaskRepository = onboardingTaskRepository;
+        this.trafficAdTaskRepository = trafficAdTaskRepository;
 
         setSizeFull();
         setPadding(true);
@@ -203,7 +212,11 @@ public class ClientsView extends VerticalLayout {
 
         Button deleteButton = new Button("Excluir", event -> {
             if (client.getId() != null) {
+                onboardingTaskRepository.deleteByClient(client);
+                trafficAdTaskRepository.deleteByClient(client);
+                taskRepository.deleteByClient(client);
                 clientRepository.delete(client);
+
                 refreshGrid();
                 Notification.show("Cliente excluído.");
             }

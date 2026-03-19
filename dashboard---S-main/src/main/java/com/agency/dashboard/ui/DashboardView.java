@@ -22,7 +22,7 @@ import com.vaadin.flow.router.Route;
 import java.time.LocalDate;
 import java.util.Map;
 
-@Route(value = "", layout = MainLayout.class)
+@Route(value = "dashboard-old", layout = MainLayout.class)
 @PageTitle("Dashboard | Creative Ops")
 public class DashboardView extends VerticalLayout implements BeforeEnterObserver {
 

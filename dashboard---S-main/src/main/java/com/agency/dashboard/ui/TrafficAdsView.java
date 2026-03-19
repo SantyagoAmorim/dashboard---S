@@ -5,6 +5,7 @@ import com.agency.dashboard.domain.TrafficAdStatus;
 import com.agency.dashboard.domain.TrafficAdTask;
 import com.agency.dashboard.repo.ClientRepository;
 import com.agency.dashboard.repo.TrafficAdTaskRepository;
+import com.agency.dashboard.service.NotificationService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
@@ -31,6 +32,7 @@ public class TrafficAdsView extends VerticalLayout {
 
     private final TrafficAdTaskRepository trafficAdTaskRepository;
     private final ClientRepository clientRepository;
+    private final NotificationService notificationService;
 
     private final Grid<TrafficAdTask> grid = new Grid<>(TrafficAdTask.class, false);
 
@@ -39,10 +41,12 @@ public class TrafficAdsView extends VerticalLayout {
 
     public TrafficAdsView(
             TrafficAdTaskRepository trafficAdTaskRepository,
-            ClientRepository clientRepository
+            ClientRepository clientRepository,
+            NotificationService notificationService
     ) {
         this.trafficAdTaskRepository = trafficAdTaskRepository;
         this.clientRepository = clientRepository;
+        this.notificationService = notificationService;
 
         setSizeFull();
         setPadding(true);
@@ -220,6 +224,8 @@ public class TrafficAdsView extends VerticalLayout {
                 return;
             }
 
+            boolean isNewTask = task.getId() == null;
+
             task.setClient(client.getValue());
             task.setTitle(title.getValue());
             task.setStatus(status.getValue() == null ? TrafficAdStatus.PENDENTE : status.getValue());
@@ -231,7 +237,24 @@ public class TrafficAdsView extends VerticalLayout {
             task.setDesignNotes(designNotes.getValue());
             task.setTrafficNotes(trafficNotes.getValue());
 
-            trafficAdTaskRepository.save(task);
+            TrafficAdTask savedTask = trafficAdTaskRepository.save(task);
+
+            if (isNewTask &&
+                    (savedTask.getStatus() == TrafficAdStatus.PENDENTE
+                            || savedTask.getStatus() == TrafficAdStatus.ESPERANDO_APROVACAO_CRIATIVO)) {
+
+                notificationService.createNotification(
+                        "Nova demanda para design",
+                        "Foi criado um novo card de anúncio para o cliente "
+                                + savedTask.getClient().getName()
+                                + ": " + savedTask.getTitle(),
+                        "DESIGN",
+                        null,
+                        "TRAFFIC_AD_TASK",
+                        savedTask.getId()
+                );
+            }
+
             Notification.show("Card salvo com sucesso.");
             dialog.close();
             refreshGrid();
@@ -268,6 +291,22 @@ public class TrafficAdsView extends VerticalLayout {
     private void updateStatus(TrafficAdTask task, TrafficAdStatus newStatus) {
         task.setStatus(newStatus);
         trafficAdTaskRepository.save(task);
+
+        if (newStatus == TrafficAdStatus.PENDENTE
+                || newStatus == TrafficAdStatus.ESPERANDO_APROVACAO_CRIATIVO) {
+
+            notificationService.createNotification(
+                    "Card voltou para o design",
+                    "O card \"" + task.getTitle() + "\" do cliente "
+                            + task.getClient().getName()
+                            + " está em " + newStatus.getLabel() + ".",
+                    "DESIGN",
+                    null,
+                    "TRAFFIC_AD_TASK",
+                    task.getId()
+            );
+        }
+
         Notification.show("Status atualizado para: " + newStatus.getLabel());
         refreshGrid();
     }

@@ -5,6 +5,7 @@ import com.agency.dashboard.domain.Lead;
 import com.agency.dashboard.domain.LeadStatus;
 import com.agency.dashboard.repo.ClientRepository;
 import com.agency.dashboard.repo.LeadRepository;
+import com.agency.dashboard.service.NotificationService;
 import com.agency.dashboard.service.OnboardingService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.dialog.Dialog;
@@ -31,6 +32,7 @@ public class SalesPipelineView extends VerticalLayout {
     private final LeadRepository leadRepository;
     private final ClientRepository clientRepository;
     private final OnboardingService onboardingService;
+    private final NotificationService notificationService;
 
     private final VerticalLayout leadCol = createCardsContainer();
     private final VerticalLayout diagCol = createCardsContainer();
@@ -42,11 +44,13 @@ public class SalesPipelineView extends VerticalLayout {
     public SalesPipelineView(
             LeadRepository leadRepository,
             ClientRepository clientRepository,
-            OnboardingService onboardingService
+            OnboardingService onboardingService,
+            NotificationService notificationService
     ) {
         this.leadRepository = leadRepository;
         this.clientRepository = clientRepository;
         this.onboardingService = onboardingService;
+        this.notificationService = notificationService;
 
         setSizeFull();
         setPadding(true);
@@ -230,6 +234,8 @@ public class SalesPipelineView extends VerticalLayout {
                 return;
             }
 
+            boolean isNewLead = lead.getId() == null;
+
             lead.setName(name.getValue());
             lead.setCompany(company.getValue());
             lead.setPhone(phone.getValue());
@@ -243,7 +249,19 @@ public class SalesPipelineView extends VerticalLayout {
                 lead.setStatus(LeadStatus.LEAD);
             }
 
-            leadRepository.save(lead);
+            Lead savedLead = leadRepository.save(lead);
+
+            if (isNewLead) {
+                notificationService.createNotification(
+                        "Novo lead cadastrado",
+                        "Lead " + savedLead.getName() + " foi cadastrado no pipeline comercial.",
+                        "COMERCIAL",
+                        savedLead.getResponsible(),
+                        "LEAD",
+                        savedLead.getId()
+                );
+            }
+
             Notification.show("Lead salvo com sucesso.");
             dialog.close();
             refresh();
@@ -285,6 +303,15 @@ public class SalesPipelineView extends VerticalLayout {
             case NEGOCIACAO -> {
                 lead.setStatus(LeadStatus.FECHADO);
                 createClientFromLead(lead);
+
+                notificationService.createNotification(
+                        "Lead fechado",
+                        "O lead " + lead.getName() + " foi fechado e virou cliente.",
+                        "GESTAO",
+                        null,
+                        "LEAD",
+                        lead.getId()
+                );
             }
             case FECHADO, PERDIDO -> {
                 return;
@@ -329,6 +356,15 @@ public class SalesPipelineView extends VerticalLayout {
         Client savedClient = clientRepository.save(client);
 
         onboardingService.createDefaultPipelineIfNeeded(savedClient);
+
+        notificationService.createNotification(
+                "Novo cliente criado",
+                "Cliente " + savedClient.getName() + " foi criado automaticamente a partir do comercial.",
+                "TRAFEGO",
+                null,
+                "CLIENT",
+                savedClient.getId()
+        );
 
         Notification.show("Cliente criado automaticamente e onboarding iniciado.");
     }

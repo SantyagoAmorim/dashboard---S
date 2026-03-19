@@ -7,49 +7,60 @@ import com.agency.dashboard.domain.OnboardingTaskType;
 import com.agency.dashboard.repo.OnboardingTaskRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 public class OnboardingService {
 
     private final OnboardingTaskRepository onboardingTaskRepository;
+    private final NotificationService notificationService;
 
-    public OnboardingService(OnboardingTaskRepository onboardingTaskRepository) {
+    public OnboardingService(
+            OnboardingTaskRepository onboardingTaskRepository,
+            NotificationService notificationService
+    ) {
         this.onboardingTaskRepository = onboardingTaskRepository;
+        this.notificationService = notificationService;
     }
 
     public void createDefaultPipelineIfNeeded(Client client) {
-        if (client == null || client.getId() == null) {
-            return;
-        }
-
         if (onboardingTaskRepository.existsByClient(client)) {
             return;
         }
 
-        OnboardingTaskType[] steps = {
-                OnboardingTaskType.BRIEFING_COMERCIAL,
-                OnboardingTaskType.PRIMEIRO_CONTATO,
-                OnboardingTaskType.FORMULARIO_PREENCHIDO,
-                OnboardingTaskType.LINK_REUNIAO_ENVIADO,
-                OnboardingTaskType.REUNIAO_ONBOARDING_AGENDADA,
-                OnboardingTaskType.REUNIAO_FEITA,
-                OnboardingTaskType.CONFIG_META,
-                OnboardingTaskType.CONFIG_GOOGLE,
-                OnboardingTaskType.CONFIG_BOT,
-                OnboardingTaskType.CONFIG_CRM,
-                OnboardingTaskType.PEDIDO_CRIATIVOS,
-                OnboardingTaskType.SUBIR_PRIMEIROS_ANUNCIOS,
-                OnboardingTaskType.VALIDACAO_CRIATIVOS,
-                OnboardingTaskType.FASE_ESCALA
-        };
+        List<OnboardingTask> tasks = new ArrayList<>();
+        int sortOrder = 1;
 
-        for (int i = 0; i < steps.length; i++) {
-            OnboardingTask task = new OnboardingTask();
-            task.setClient(client);
-            task.setTaskType(steps[i]);
-            task.setStatus(OnboardingTaskStatus.PENDING);
-            task.setSortOrder(i + 1);
+        tasks.add(createTask(client, OnboardingTaskType.BRIEFING_COMERCIAL, sortOrder++));
+        tasks.add(createTask(client, OnboardingTaskType.PRIMEIRO_CONTATO, sortOrder++));
+        tasks.add(createTask(client, OnboardingTaskType.FORMULARIO_PREENCHIDO, sortOrder++));
+        tasks.add(createTask(client, OnboardingTaskType.LINK_REUNIAO_ENVIADO, sortOrder++));
+        tasks.add(createTask(client, OnboardingTaskType.REUNIAO_FEITA, sortOrder++));
+        tasks.add(createTask(client, OnboardingTaskType.CONFIG_META, sortOrder++));
+        tasks.add(createTask(client, OnboardingTaskType.CONFIG_GOOGLE, sortOrder++));
+        tasks.add(createTask(client, OnboardingTaskType.CONFIG_BOT, sortOrder++));
+        tasks.add(createTask(client, OnboardingTaskType.CONFIG_CRM, sortOrder++));
+        tasks.add(createTask(client, OnboardingTaskType.PEDIDO_CRIATIVOS, sortOrder++));
 
-            onboardingTaskRepository.save(task);
-        }
+        onboardingTaskRepository.saveAll(tasks);
+
+        notificationService.createNotification(
+                "Novo onboarding gerado",
+                "O cliente " + client.getName() + " teve o pipeline de onboarding criado para o tráfego.",
+                "TRAFEGO",
+                null,
+                "CLIENT",
+                client.getId()
+        );
+    }
+
+    private OnboardingTask createTask(Client client, OnboardingTaskType taskType, int sortOrder) {
+        OnboardingTask task = new OnboardingTask();
+        task.setClient(client);
+        task.setTaskType(taskType);
+        task.setStatus(OnboardingTaskStatus.PENDING);
+        task.setSortOrder(sortOrder);
+        return task;
     }
 }

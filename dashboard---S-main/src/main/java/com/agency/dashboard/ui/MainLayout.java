@@ -50,7 +50,10 @@ public class MainLayout extends AppLayout {
         nav.setSpacing(true);
 
         nav.add(
-                new RouterLink("Dashboard", DashboardView.class),
+                new RouterLink("Dashboard Design", DesignDashboardView.class),
+                new RouterLink("Dashboard Tráfego", TrafficDashboardView.class),
+                new RouterLink("Dashboard Comerc CommercialDashboardView.class),
+                new RouterLink("Dashboard Gestão", ManagementDashboardView.class),
                 new RouterLink("Pedidos", RequestsView.class),
                 new RouterLink("Clientes", ClientsView.class),
                 new RouterLink("Tarefas", TasksView.class),

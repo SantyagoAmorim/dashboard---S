@@ -1,179 +1,227 @@
 package com.agency.dashboard.ui;
 
+import com.agency.dashboard.domain.AppNotification;
 import com.agency.dashboard.domain.Client;
-import com.agency.dashboard.domain.CreativeRequest;
-import com.agency.dashboard.domain.RequestStatus;
+import com.agency.dashboard.domain.Lead;
+import com.agency.dashboard.domain.TrafficAd;
+import com.agency.dashboard.repo.AppNotificationRepository;
 import com.agency.dashboard.repo.ClientRepository;
-import com.agency.dashboard.service.CurrentUserService;
-import com.agency.dashboard.service.MetricsService;
+import com.agency.dashboard.repo.LeadRepository;
+import com.agency.dashboard.repo.TrafficAdRepository;
 import com.vaadin.flow.component.Component;
-import com.vaadin.flow.component.combobox.ComboBox;
-import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
-import java.time.LocalDate;
-import java.util.Map;
+import java.util.Comparator;
+import java.util.List;
 
 @Route(value = "dashboard-old", layout = MainLayout.class)
-@PageTitle("Dashboard | Creative Ops")
-public class DashboardView extends VerticalLayout implements BeforeEnterObserver {
+@PageTitle("Dashboard Geral | Creative Ops")
+public class DashboardView extends VerticalLayout {
 
-    private final MetricsService metrics;
-    private final ClientRepository clients;
-    private final CurrentUserService currentUserService;
+    private final ClientRepository clientRepository;
+    private final LeadRepository leadRepository;
+    private final TrafficAdRepository trafficAdRepository;
+    private final AppNotificationRepository appNotificationRepository;
 
-    private final ComboBox<Client> clientFilter = new ComboBox<>("Cliente");
-    private final ComboBox<RequestStatus> statusFilter = new ComboBox<>("Status");
-    private final DatePicker monthPicker = new DatePicker("Mês");
+    private final Span totalClients = new Span();
+    private final Span totalLeads = new Span();
+    private final Span totalAds = new Span();
+    private final Span unreadNotifications = new Span();
 
-    private final Grid<Map.Entry<String, Long>> byClientGrid = new Grid<>();
-    private final Grid<CreativeRequest> recentGrid = new Grid<>();
+    private final Grid<Lead> recentLeadsGrid = new Grid<>(Lead.class, false);
+    private final Grid<TrafficAd> recentAdsGrid = new Grid<>(TrafficAd.class, false);
+    private final Grid<AppNotification> recentNotificationsGrid = new Grid<>(AppNotification.class, false);
 
-    private final Span kpiRequested = new Span();
-    private final Span kpiDelivered = new Span();
-    private final Span kpiOpen = new Span();
-    private final Span kpiLead = new Span();
-
-    public DashboardView(MetricsService metrics,
-                         ClientRepository clients,
-                         CurrentUserService currentUserService) {
-        this.metrics = metrics;
-        this.clients = clients;
-        this.currentUserService = currentUserService;
+    public DashboardView(
+            ClientRepository clientRepository,
+            LeadRepository leadRepository,
+            TrafficAdRepository trafficAdRepository,
+            AppNotificationRepository appNotificationRepository
+    ) {
+        this.clientRepository = clientRepository;
+        this.leadRepository = leadRepository;
+        this.trafficAdRepository = trafficAdRepository;
+        this.appNotificationRepository = appNotificationRepository;
 
         setSizeFull();
         setPadding(true);
         setSpacing(true);
 
-        add(new H2("Visão geral"));
+        add(buildHeader());
+        add(buildKpiRow());
+        add(buildContentRow());
 
-        monthPicker.setValue(LocalDate.now().withDayOfMonth(1));
-        monthPicker.setHelperText("Selecione qualquer dia do mês (usamos o mês inteiro).");
+        configureRecentLeadsGrid();
+        configureRecentAdsGrid();
+        configureRecentNotificationsGrid();
 
-        clientFilter.setItems(clients.findAll());
-        clientFilter.setItemLabelGenerator(Client::getName);
-        clientFilter.setClearButtonVisible(true);
-
-        statusFilter.setItems(RequestStatus.values());
-        statusFilter.setClearButtonVisible(true);
-
-        HorizontalLayout filters = new HorizontalLayout(monthPicker, clientFilter, statusFilter);
-        filters.setWidthFull();
-        filters.getStyle().set("gap", "12px");
-        add(filters);
-
-        add(kpiRow());
-        add(gridsRow());
-
-        monthPicker.addValueChangeListener(e -> refresh());
-        clientFilter.addValueChangeListener(e -> refresh());
-        statusFilter.addValueChangeListener(e -> refresh());
-
-        configureGrids();
         refresh();
     }
 
-    private Component kpiRow() {
+    private Component buildHeader() {
+        VerticalLayout header = new VerticalLayout();
+        header.setPadding(false);
+        header.setSpacing(false);
+
+        H2 title = new H2("Dashboard Geral");
+        title.getStyle()
+                .set("margin", "0")
+                .set("font-size", "2rem");
+
+        Span subtitle = new Span("Visão rápida da operação da agência");
+        subtitle.getStyle()
+                .set("color", "var(--lumo-secondary-text-color)")
+                .set("font-size", "0.95rem");
+
+        header.add(title, subtitle);
+        return header;
+    }
+
+    private Component buildKpiRow() {
         HorizontalLayout row = new HorizontalLayout(
-                kpiCard("Requisições no mês", kpiRequested),
-                kpiCard("Entregues no mês", kpiDelivered),
-                kpiCard("Pendentes (criadas no mês)", kpiOpen),
-                kpiCard("Lead time médio (h)", kpiLead)
+                createKpiCard("Clientes", totalClients),
+                createKpiCard("Leads", totalLeads),
+                createKpiCard("Anúncios", totalAds),
+                createKpiCard("Notificações não lidas", unreadNotifications)
         );
         row.setWidthFull();
-        row.getStyle().set("gap", "12px");
+        row.setSpacing(true);
         return row;
     }
 
-    private Component kpiCard(String label, Span value) {
+    private Component createKpiCard(String label, Span value) {
         value.getStyle()
-                .set("font-size", "28px")
-                .set("font-weight", "700");
+                .set("font-size", "2rem")
+                .set("font-weight", "800");
 
         Span caption = new Span(label);
-        caption.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        caption.getStyle()
+                .set("color", "var(--lumo-secondary-text-color)")
+                .set("font-size", "0.9rem");
 
         VerticalLayout card = new VerticalLayout(value, caption);
         card.setPadding(true);
         card.setSpacing(false);
-        card.setWidth("260px");
+        card.setWidthFull();
         card.getStyle()
                 .set("border", "1px solid var(--lumo-contrast-10pct)")
-                .set("border-radius", "14px")
-                .set("box-shadow", "var(--lumo-box-shadow-s)");
+                .set("border-radius", "16px")
+                .set("box-shadow", "var(--lumo-box-shadow-xs)")
+                .set("background", "var(--lumo-base-color)");
+
         return card;
     }
 
-    private Component gridsRow() {
-        byClientGrid.setHeight("360px");
-        recentGrid.setHeight("360px");
+    private Component buildContentRow() {
+        recentLeadsGrid.setHeight("320px");
+        recentAdsGrid.setHeight("320px");
+        recentNotificationsGrid.setHeight("320px");
 
-        VerticalLayout left = new VerticalLayout(new H2("Requisições por cliente (mês)"), byClientGrid);
-        left.setPadding(false);
-        left.setSpacing(false);
+        VerticalLayout left = new VerticalLayout(new H3("Leads recentes"), recentLeadsGrid);
+        left.setPadding(true);
+        left.setSpacing(true);
         left.setSizeFull();
+        left.getStyle()
+                .set("border", "1px solid var(--lumo-contrast-10pct)")
+                .set("border-radius", "16px");
 
-        VerticalLayout right = new VerticalLayout(new H2("Pedidos recentes (filtráveis)"), recentGrid);
-        right.setPadding(false);
-        right.setSpacing(false);
+        VerticalLayout center = new VerticalLayout(new H3("Anúncios recentes"), recentAdsGrid);
+        center.setPadding(true);
+        center.setSpacing(true);
+        center.setSizeFull();
+        center.getStyle()
+                .set("border", "1px solid var(--lumo-contrast-10pct)")
+                .set("border-radius", "16px");
+
+        VerticalLayout right = new VerticalLayout(new H3("Notificações recentes"), recentNotificationsGrid);
+        right.setPadding(true);
+        right.setSpacing(true);
         right.setSizeFull();
+        right.getStyle()
+                .set("border", "1px solid var(--lumo-contrast-10pct)")
+                .set("border-radius", "16px");
 
-        HorizontalLayout row = new HorizontalLayout(left, right);
+        HorizontalLayout row = new HorizontalLayout(left, center, right);
         row.setSizeFull();
-        row.setFlexGrow(1, left, right);
-        row.getStyle().set("gap", "12px");
+        row.setSpacing(true);
+        row.setFlexGrow(1, left, center, right);
+
         return row;
     }
 
-    private void configureGrids() {
-        byClientGrid.addColumn(Map.Entry::getKey)
-                .setHeader("Cliente")
-                .setAutoWidth(true)
-                .setFlexGrow(1);
-
-        byClientGrid.addColumn(Map.Entry::getValue)
-                .setHeader("Qtd. no mês")
+    private void configureRecentLeadsGrid() {
+        recentLeadsGrid.addColumn(Lead::getName)
+                .setHeader("Lead")
                 .setAutoWidth(true);
 
-        recentGrid.addColumn(r -> r.getClient().getName()).setHeader("Cliente").setAutoWidth(true);
-        recentGrid.addColumn(r -> r.getType().name()).setHeader("Tipo").setAutoWidth(true);
-        recentGrid.addColumn(r -> r.getStatus().name()).setHeader("Status").setAutoWidth(true);
-        recentGrid.addColumn(r -> r.getTitle() == null ? "-" : r.getTitle()).setHeader("Título").setFlexGrow(1);
-        recentGrid.addColumn(r -> r.getCreatedAt().toLocalDate()).setHeader("Criado em").setAutoWidth(true);
+        recentLeadsGrid.addColumn(lead -> valueOrDash(lead.getCompany()))
+                .setHeader("Empresa")
+                .setAutoWidth(true);
+
+        recentLeadsGrid.addColumn(lead -> lead.getStatus() != null ? lead.getStatus().name() : "—")
+                .setHeader("Status")
+                .setAutoWidth(true);
+    }
+
+    private void configureRecentAdsGrid() {
+        recentAdsGrid.addColumn(TrafficAd::getName)
+                .setHeader("Anúncio")
+                .setAutoWidth(true);
+
+        recentAdsGrid.addColumn(ad -> ad.getClient() != null ? ad.getClient().getName() : "—")
+                .setHeader("Cliente")
+                .setAutoWidth(true);
+
+        recentAdsGrid.addColumn(ad -> valueOrDash(ad.getStatus()))
+                .setHeader("Status")
+                .setAutoWidth(true);
+    }
+
+    private void configureRecentNotificationsGrid() {
+        recentNotificationsGrid.addColumn(AppNotification::getTitle)
+                .setHeader("Título")
+                .setAutoWidth(true);
+
+        recentNotificationsGrid.addColumn(notification -> valueOrDash(notification.getTargetSector()))
+                .setHeader("Setor")
+                .setAutoWidth(true);
+
+        recentNotificationsGrid.addColumn(notification -> notification.isRead() ? "Lida" : "Nova")
+                .setHeader("Status")
+                .setAutoWidth(true);
     }
 
     private void refresh() {
-        LocalDate base = monthPicker.getValue() == null ? LocalDate.now() : monthPicker.getValue();
-        LocalDate month = base.withDayOfMonth(1);
+        List<Lead> leads = leadRepository.findAll().stream()
+                .sorted(Comparator.comparing(Lead::getCreatedAt).reversed())
+                .toList();
 
-        long requested = metrics.totalRequested(month);
-        long delivered = metrics.totalDelivered(month);
-        long open = metrics.totalOpen(month);
-        double lead = metrics.avgLeadTimeHours(month);
+        List<TrafficAd> ads = trafficAdRepository.findAll().stream()
+                .sorted(Comparator.comparing(TrafficAd::getId).reversed())
+                .toList();
 
-        kpiRequested.setText(String.valueOf(requested));
-        kpiDelivered.setText(String.valueOf(delivered));
-        kpiOpen.setText(String.valueOf(open));
-        kpiLead.setText(String.valueOf(lead));
+        List<AppNotification> notifications = appNotificationRepository.findAllByOrderByCreatedAtDesc();
 
-        var byClient = metrics.requestsByClient(month).entrySet().stream().toList();
-        byClientGrid.setItems(byClient);
+        totalClients.setText(String.valueOf(clientRepository.count()));
+        totalLeads.setText(String.valueOf(leads.size()));
+        totalAds.setText(String.valueOf(ads.size()));
+        unreadNotifications.setText(String.valueOf(
+                notifications.stream().filter(n -> !n.isRead()).count()
+        ));
 
-        recentGrid.setItems(metrics.filter(month, clientFilter.getValue(), statusFilter.getValue()));
+        recentLeadsGrid.setItems(leads.stream().limit(8).toList());
+        recentAdsGrid.setItems(ads.stream().limit(8).toList());
+        recentNotificationsGrid.setItems(notifications.stream().limit(8).toList());
     }
 
-    @Override
-    public void beforeEnter(BeforeEnterEvent event) {
-        if (!currentUserService.isLoggedIn()) {
-            event.forwardTo(LoginView.class);
-        }
+    private String valueOrDash(String value) {
+        return value == null || value.isBlank() ? "—" : value;
     }
 }

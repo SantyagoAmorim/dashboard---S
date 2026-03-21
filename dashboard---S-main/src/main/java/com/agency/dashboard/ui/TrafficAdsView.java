@@ -1,336 +1,180 @@
 package com.agency.dashboard.ui;
 
 import com.agency.dashboard.domain.Client;
-import com.agency.dashboard.domain.TrafficAdStatus;
-import com.agency.dashboard.domain.TrafficAdTask;
+import com.agency.dashboard.domain.TrafficAd;
 import com.agency.dashboard.repo.ClientRepository;
-import com.agency.dashboard.repo.TrafficAdTaskRepository;
-import com.agency.dashboard.service.NotificationService;
+import com.agency.dashboard.repo.TrafficAdRepository;
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.combobox.ComboBox;
-import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.grid.ItemDoubleClickEvent;
-import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
-import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.orderedlayout.*;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
-import java.util.Comparator;
-import java.util.List;
-
 @Route(value = "traffic-ads", layout = MainLayout.class)
-@PageTitle("Anúncios do Tráfego | Creative Ops")
+@PageTitle("Anúncios | Creative Ops")
 public class TrafficAdsView extends VerticalLayout {
 
-    private final TrafficAdTaskRepository trafficAdTaskRepository;
+    private final TrafficAdRepository adRepository;
     private final ClientRepository clientRepository;
-    private final NotificationService notificationService;
+    private final Grid<TrafficAd> grid = new Grid<>(TrafficAd.class, false);
 
-    private final Grid<TrafficAdTask> grid = new Grid<>(TrafficAdTask.class, false);
-
-    private final ComboBox<Client> clientFilter = new ComboBox<>("Cliente");
-    private final ComboBox<TrafficAdStatus> statusFilter = new ComboBox<>("Status");
-
-    public TrafficAdsView(
-            TrafficAdTaskRepository trafficAdTaskRepository,
-            ClientRepository clientRepository,
-            NotificationService notificationService
-    ) {
-        this.trafficAdTaskRepository = trafficAdTaskRepository;
+    public TrafficAdsView(TrafficAdRepository adRepository, ClientRepository clientRepository) {
+        this.adRepository = adRepository;
         this.clientRepository = clientRepository;
-        this.notificationService = notificationService;
 
         setSizeFull();
         setPadding(true);
         setSpacing(true);
 
-        H2 title = new H2("Fluxo de Anúncios");
+        add(buildHeader());
+        add(buildGrid());
 
-        Button newTaskButton = new Button("Novo card", event -> openForm(new TrafficAdTask()));
-        Button refreshButton = new Button("Atualizar", event -> refreshGrid());
-
-        configureFilters();
         configureGrid();
-
-        HorizontalLayout top = new HorizontalLayout(title, newTaskButton, refreshButton);
-        top.setWidthFull();
-        top.setAlignItems(Alignment.CENTER);
-        top.expand(title);
-
-        HorizontalLayout filters = new HorizontalLayout(clientFilter, statusFilter);
-        filters.setWidthFull();
-        filters.setAlignItems(Alignment.END);
-
-        add(top, filters, grid);
-
-        refreshGrid();
+        refresh();
     }
 
-    private void configureFilters() {
-        clientFilter.setItems(clientRepository.findAll().stream()
-                .sorted(Comparator.comparing(Client::getName))
-                .toList());
-        clientFilter.setItemLabelGenerator(Client::getName);
-        clientFilter.setClearButtonVisible(true);
-        clientFilter.addValueChangeListener(event -> refreshGrid());
+    private Component buildHeader() {
+        H2 title = new H2("Gestão de Anúncios");
 
-        statusFilter.setItems(TrafficAdStatus.values());
-        statusFilter.setItemLabelGenerator(TrafficAdStatus::getLabel);
-        statusFilter.setClearButtonVisible(true);
-        statusFilter.addValueChangeListener(event -> refreshGrid());
+        Button newAd = new Button("Novo anúncio", e -> openForm(new TrafficAd()));
+        newAd.getStyle()
+                .set("background", "var(--lumo-primary-color)")
+                .set("color", "white");
+
+        HorizontalLayout header = new HorizontalLayout(title, newAd);
+        header.setWidthFull();
+        header.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        header.setAlignItems(Alignment.CENTER);
+
+        return header;
+    }
+
+    private Component buildGrid() {
+        VerticalLayout wrapper = new VerticalLayout(new H2("Lista de anúncios"), grid);
+
+        wrapper.setSizeFull();
+        wrapper.getStyle()
+                .set("border", "1px solid var(--lumo-contrast-10pct)")
+                .set("border-radius", "12px");
+
+        return wrapper;
     }
 
     private void configureGrid() {
         grid.setSizeFull();
 
-        grid.addColumn(task -> task.getClient() != null ? task.getClient().getName() : "—")
-                .setHeader("Cliente")
-                .setAutoWidth(true);
+        grid.addColumn(ad -> valueOrDash(ad.getName()))
+                .setHeader("Anúncio");
 
-        grid.addColumn(TrafficAdTask::getTitle)
-                .setHeader("Título")
-                .setAutoWidth(true)
-                .setFlexGrow(1);
+        grid.addColumn(ad -> ad.getClient() != null ? ad.getClient().getName() : "—")
+                .setHeader("Cliente");
 
-        grid.addColumn(task -> task.getStatus() != null ? task.getStatus().getLabel() : "—")
-                .setHeader("Status")
-                .setAutoWidth(true);
+        grid.addColumn(ad -> valueOrDash(ad.getPlatform()))
+                .setHeader("Plataforma");
 
-        grid.addColumn(task -> valueOrDash(task.getResponsible()))
-                .setHeader("Responsável")
-                .setAutoWidth(true);
+        grid.addColumn(ad -> valueOrDash(ad.getStatus()))
+                .setHeader("Status");
 
-        grid.addColumn(task -> valueOrDash(task.getCreatedBySector()))
-                .setHeader("Setor")
-                .setAutoWidth(true);
+        grid.addColumn(ad -> valueOrDash(ad.getObjective()))
+                .setHeader("Objetivo");
 
-        grid.addColumn(task -> task.getDueDate() != null ? task.getDueDate().toString() : "—")
-                .setHeader("Prazo")
-                .setAutoWidth(true);
-
-        grid.addComponentColumn(task -> {
-            if (task.getMediaUrl() == null || task.getMediaUrl().isBlank()) {
-                return new com.vaadin.flow.component.html.Span("—");
-            }
-            Anchor anchor = new Anchor(task.getMediaUrl(), "Ver mídia");
-            anchor.setTarget("_blank");
-            return anchor;
-        }).setHeader("Mídia").setAutoWidth(true);
-
-        grid.addComponentColumn(task -> {
-            HorizontalLayout actions = new HorizontalLayout();
-
-            Button approval = new Button("Aprovação", e -> updateStatus(task, TrafficAdStatus.ESPERANDO_APROVACAO_CRIATIVO));
-            Button pending = new Button("Pendente", e -> updateStatus(task, TrafficAdStatus.PENDENTE));
-            Button progress = new Button("Andamento", e -> updateStatus(task, TrafficAdStatus.EM_ANDAMENTO));
-            Button done = new Button("Concluir", e -> updateStatus(task, TrafficAdStatus.CONCLUIDO));
-
-            actions.add(approval, pending, progress, done);
-            return actions;
-        }).setHeader("Mover para").setAutoWidth(true);
-
-        grid.addItemDoubleClickListener(this::handleEdit);
+        grid.addItemDoubleClickListener(e -> openForm(e.getItem()));
     }
 
-    private void handleEdit(ItemDoubleClickEvent<TrafficAdTask> event) {
-        openForm(event.getItem());
-    }
-
-    private void openForm(TrafficAdTask task) {
+    private void openForm(TrafficAd ad) {
         Dialog dialog = new Dialog();
-        dialog.setWidth("950px");
+        dialog.setWidth("700px");
 
+        TextField name = new TextField("Nome do anúncio");
         ComboBox<Client> client = new ComboBox<>("Cliente");
-        client.setItems(clientRepository.findAll().stream()
-                .sorted(Comparator.comparing(Client::getName))
-                .toList());
+        TextField platform = new TextField("Plataforma");
+        TextField status = new TextField("Status");
+        TextField objective = new TextField("Objetivo");
+        TextArea notes = new TextArea("Observações");
+
+        client.setItems(clientRepository.findAll());
         client.setItemLabelGenerator(Client::getName);
+
+        name.setWidthFull();
         client.setWidthFull();
-
-        TextField title = new TextField("Título");
-        title.setWidthFull();
-
-        ComboBox<TrafficAdStatus> status = new ComboBox<>("Status");
-        status.setItems(TrafficAdStatus.values());
-        status.setItemLabelGenerator(TrafficAdStatus::getLabel);
+        platform.setWidthFull();
         status.setWidthFull();
+        objective.setWidthFull();
+        notes.setWidthFull();
 
-        TextField responsible = new TextField("Responsável");
-        responsible.setWidthFull();
+        name.setValue(nullSafe(ad.getName()));
+        client.setValue(ad.getClient());
+        platform.setValue(nullSafe(ad.getPlatform()));
+        status.setValue(nullSafe(ad.getStatus()));
+        objective.setValue(nullSafe(ad.getObjective()));
+        notes.setValue(nullSafe(ad.getNotes()));
 
-        TextField createdBySector = new TextField("Setor criador");
-        createdBySector.setWidthFull();
-        createdBySector.setPlaceholder("Ex: DESIGN ou TRAFEGO");
-
-        DatePicker dueDate = new DatePicker("Prazo");
-        dueDate.setWidthFull();
-
-        TextField mediaUrl = new TextField("Link da mídia / criativo");
-        mediaUrl.setWidthFull();
-
-        TextArea description = new TextArea("Descrição geral");
-        description.setWidthFull();
-        description.setMinHeight("120px");
-
-        TextArea designNotes = new TextArea("Observações do Design");
-        designNotes.setWidthFull();
-        designNotes.setMinHeight("120px");
-
-        TextArea trafficNotes = new TextArea("Observações do Tráfego");
-        trafficNotes.setWidthFull();
-        trafficNotes.setMinHeight("120px");
-
-        client.setValue(task.getClient());
-        title.setValue(task.getTitle() == null ? "" : task.getTitle());
-        status.setValue(task.getStatus());
-        responsible.setValue(task.getResponsible() == null ? "" : task.getResponsible());
-        createdBySector.setValue(task.getCreatedBySector() == null ? "" : task.getCreatedBySector());
-        dueDate.setValue(task.getDueDate());
-        mediaUrl.setValue(task.getMediaUrl() == null ? "" : task.getMediaUrl());
-        description.setValue(task.getDescription() == null ? "" : task.getDescription());
-        designNotes.setValue(task.getDesignNotes() == null ? "" : task.getDesignNotes());
-        trafficNotes.setValue(task.getTrafficNotes() == null ? "" : task.getTrafficNotes());
-
-        FormLayout formLayout = new FormLayout();
-        formLayout.setWidthFull();
-        formLayout.add(
-                client, title,
-                status, responsible,
-                createdBySector, dueDate,
-                mediaUrl, description,
-                designNotes, trafficNotes
+        FormLayout form = new FormLayout(
+                name, client,
+                platform, status,
+                objective, notes
         );
 
-        formLayout.setColspan(description, 2);
-        formLayout.setColspan(designNotes, 2);
-        formLayout.setColspan(trafficNotes, 2);
-
-        Button saveButton = new Button("Salvar", e -> {
-            if (client.getValue() == null) {
-                Notification.show("Selecione o cliente.");
+        Button save = new Button("Salvar", e -> {
+            if (name.getValue().isBlank()) {
+                Notification.show("Nome obrigatório");
                 return;
             }
 
-            if (title.getValue() == null || title.getValue().isBlank()) {
-                Notification.show("Informe o título.");
-                return;
-            }
+            ad.setName(name.getValue());
+            ad.setClient(client.getValue());
+            ad.setPlatform(platform.getValue());
+            ad.setStatus(status.getValue());
+            ad.setObjective(objective.getValue());
+            ad.setNotes(notes.getValue());
 
-            boolean isNewTask = task.getId() == null;
+            adRepository.save(ad);
 
-            task.setClient(client.getValue());
-            task.setTitle(title.getValue());
-            task.setStatus(status.getValue() == null ? TrafficAdStatus.PENDENTE : status.getValue());
-            task.setResponsible(responsible.getValue());
-            task.setCreatedBySector(createdBySector.getValue());
-            task.setDueDate(dueDate.getValue());
-            task.setMediaUrl(mediaUrl.getValue());
-            task.setDescription(description.getValue());
-            task.setDesignNotes(designNotes.getValue());
-            task.setTrafficNotes(trafficNotes.getValue());
-
-            TrafficAdTask savedTask = trafficAdTaskRepository.save(task);
-
-            if (isNewTask &&
-                    (savedTask.getStatus() == TrafficAdStatus.PENDENTE
-                            || savedTask.getStatus() == TrafficAdStatus.ESPERANDO_APROVACAO_CRIATIVO)) {
-
-                notificationService.createNotification(
-                        "Nova demanda para design",
-                        "Foi criado um novo card de anúncio para o cliente "
-                                + savedTask.getClient().getName()
-                                + ": " + savedTask.getTitle(),
-                        "DESIGN",
-                        null,
-                        "TRAFFIC_AD_TASK",
-                        savedTask.getId()
-                );
-            }
-
-            Notification.show("Card salvo com sucesso.");
+            Notification.show("Anúncio salvo");
             dialog.close();
-            refreshGrid();
+            refresh();
         });
 
-        Button deleteButton = new Button("Excluir", e -> {
-            if (task.getId() != null) {
-                trafficAdTaskRepository.delete(task);
-                Notification.show("Card excluído.");
-                refreshGrid();
+        Button delete = new Button("Excluir", e -> {
+            if (ad.getId() != null) {
+                adRepository.delete(ad);
+                Notification.show("Excluído");
+                refresh();
             }
             dialog.close();
         });
 
-        Button cancelButton = new Button("Cancelar", e -> dialog.close());
+        delete.setVisible(ad.getId() != null);
 
-        deleteButton.setVisible(task.getId() != null);
-
-        HorizontalLayout actions = new HorizontalLayout(saveButton, deleteButton, cancelButton);
+        HorizontalLayout actions = new HorizontalLayout(save, delete);
 
         VerticalLayout content = new VerticalLayout(
-                new H2(task.getId() == null ? "Novo card de anúncio" : "Editar card de anúncio"),
-                formLayout,
+                new H2("Anúncio"),
+                form,
                 actions
         );
-        content.setPadding(false);
-        content.setSpacing(true);
-        content.setWidthFull();
 
         dialog.add(content);
         dialog.open();
     }
 
-    private void updateStatus(TrafficAdTask task, TrafficAdStatus newStatus) {
-        task.setStatus(newStatus);
-        trafficAdTaskRepository.save(task);
-
-        if (newStatus == TrafficAdStatus.PENDENTE
-                || newStatus == TrafficAdStatus.ESPERANDO_APROVACAO_CRIATIVO) {
-
-            notificationService.createNotification(
-                    "Card voltou para o design",
-                    "O card \"" + task.getTitle() + "\" do cliente "
-                            + task.getClient().getName()
-                            + " está em " + newStatus.getLabel() + ".",
-                    "DESIGN",
-                    null,
-                    "TRAFFIC_AD_TASK",
-                    task.getId()
-            );
-        }
-
-        Notification.show("Status atualizado para: " + newStatus.getLabel());
-        refreshGrid();
+    private void refresh() {
+        grid.setItems(adRepository.findAll());
     }
 
-    private void refreshGrid() {
-        Client selectedClient = clientFilter.getValue();
-        TrafficAdStatus selectedStatus = statusFilter.getValue();
-
-        List<TrafficAdTask> tasks;
-
-        if (selectedClient != null && selectedStatus != null) {
-            tasks = trafficAdTaskRepository.findByClientAndStatusOrderByCreatedAtDesc(selectedClient, selectedStatus);
-        } else if (selectedClient != null) {
-            tasks = trafficAdTaskRepository.findByClientOrderByCreatedAtDesc(selectedClient);
-        } else if (selectedStatus != null) {
-            tasks = trafficAdTaskRepository.findByStatusOrderByCreatedAtDesc(selectedStatus);
-        } else {
-            tasks = trafficAdTaskRepository.findAllByOrderByCreatedAtDesc();
-        }
-
-        grid.setItems(tasks);
+    private String nullSafe(String v) {
+        return v == null ? "" : v;
     }
 
-    private String valueOrDash(String value) {
-        return value == null || value.isBlank() ? "—" : value;
+    private String valueOrDash(String v) {
+        return (v == null || v.isBlank()) ? "—" : v;
     }
 }

@@ -2,7 +2,11 @@ package com.agency.dashboard.ui;
 
 import com.agency.dashboard.domain.TrafficAdStatus;
 import com.agency.dashboard.domain.TrafficAdTask;
+import com.agency.dashboard.domain.User;
 import com.agency.dashboard.repo.TrafficAdTaskRepository;
+import com.agency.dashboard.security.AccessControl;
+import com.agency.dashboard.security.SecureView;
+import com.agency.dashboard.service.CurrentUserService;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
@@ -17,9 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Route(value = "", layout = MainLayout.class)
+@Route(value = "design-dashboard", layout = MainLayout.class)
 @PageTitle("Dashboard do Design | Creative Ops")
-public class DesignDashboardView extends VerticalLayout {
+public class DesignDashboardView extends SecureView {
 
     private final TrafficAdTaskRepository trafficAdTaskRepository;
 
@@ -31,7 +35,11 @@ public class DesignDashboardView extends VerticalLayout {
     private final Grid<Map.Entry<String, Long>> rankingGrid = new Grid<>();
     private final Grid<TrafficAdTask> recentGrid = new Grid<>(TrafficAdTask.class, false);
 
-    public DesignDashboardView(TrafficAdTaskRepository trafficAdTaskRepository) {
+    public DesignDashboardView(
+            TrafficAdTaskRepository trafficAdTaskRepository,
+            CurrentUserService currentUserService
+    ) {
+        super(currentUserService);
         this.trafficAdTaskRepository = trafficAdTaskRepository;
 
         setSizeFull();
@@ -46,6 +54,11 @@ public class DesignDashboardView extends VerticalLayout {
         configureRankingGrid();
         configureRecentGrid();
         refresh();
+    }
+
+    @Override
+    protected boolean hasAccess(User user) {
+        return AccessControl.canAccessDesign(user);
     }
 
     private Component buildKpiRow() {
@@ -72,7 +85,6 @@ public class DesignDashboardView extends VerticalLayout {
         card.setSpacing(false);
         card.setPadding(true);
         card.setWidth("260px");
-
         card.getStyle()
                 .set("border", "1px solid var(--lumo-contrast-10pct)")
                 .set("border-radius", "14px")

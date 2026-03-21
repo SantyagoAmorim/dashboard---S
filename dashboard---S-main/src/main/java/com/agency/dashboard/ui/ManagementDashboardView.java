@@ -7,11 +7,15 @@ import com.agency.dashboard.domain.OnboardingTask;
 import com.agency.dashboard.domain.OnboardingTaskStatus;
 import com.agency.dashboard.domain.TrafficAdStatus;
 import com.agency.dashboard.domain.TrafficAdTask;
+import com.agency.dashboard.domain.User;
 import com.agency.dashboard.repo.AppNotificationRepository;
 import com.agency.dashboard.repo.ClientRepository;
 import com.agency.dashboard.repo.LeadRepository;
 import com.agency.dashboard.repo.OnboardingTaskRepository;
 import com.agency.dashboard.repo.TrafficAdTaskRepository;
+import com.agency.dashboard.security.AccessControl;
+import com.agency.dashboard.security.SecureView;
+import com.agency.dashboard.service.CurrentUserService;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
@@ -26,7 +30,7 @@ import java.util.List;
 
 @Route(value = "management-dashboard", layout = MainLayout.class)
 @PageTitle("Dashboard da Gestão | Creative Ops")
-public class ManagementDashboardView extends VerticalLayout {
+public class ManagementDashboardView extends SecureView {
 
     private final ClientRepository clientRepository;
     private final LeadRepository leadRepository;
@@ -52,8 +56,11 @@ public class ManagementDashboardView extends VerticalLayout {
             LeadRepository leadRepository,
             OnboardingTaskRepository onboardingTaskRepository,
             TrafficAdTaskRepository trafficAdTaskRepository,
-            AppNotificationRepository appNotificationRepository
+            AppNotificationRepository appNotificationRepository,
+            CurrentUserService currentUserService
     ) {
+        super(currentUserService);
+
         this.clientRepository = clientRepository;
         this.leadRepository = leadRepository;
         this.onboardingTaskRepository = onboardingTaskRepository;
@@ -75,6 +82,11 @@ public class ManagementDashboardView extends VerticalLayout {
         configureRecentNotificationsGrid();
 
         refresh();
+    }
+
+    @Override
+    protected boolean hasAccess(User user) {
+        return AccessControl.canAccessManagement(user);
     }
 
     private Component buildKpiRow1() {
@@ -150,26 +162,45 @@ public class ManagementDashboardView extends VerticalLayout {
     }
 
     private void configureRecentLeadsGrid() {
-        recentLeadsGrid.addColumn(Lead::getName).setHeader("Nome").setAutoWidth(true);
-        recentLeadsGrid.addColumn(lead -> valueOrDash(lead.getCompany())).setHeader("Empresa").setAutoWidth(true);
-        recentLeadsGrid.addColumn(lead -> lead.getStatus() != null ? lead.getStatus().getLabel() : "—")
-                .setHeader("Status").setAutoWidth(true);
+        recentLeadsGrid.addColumn(Lead::getName)
+                .setHeader("Nome")
+                .setAutoWidth(true);
+
+        recentLeadsGrid.addColumn(lead -> valueOrDash(lead.getCompany()))
+                .setHeader("Empresa")
+                .setAutoWidth(true);
+
+        recentLeadsGrid.addColumn(lead -> lead.getStatus() != null ? lead.getStatus().name() : "—")
+                .setHeader("Status")
+                .setAutoWidth(true);
     }
 
     private void configureRecentAdsGrid() {
         recentAdsGrid.addColumn(task -> task.getClient() != null ? task.getClient().getName() : "—")
-                .setHeader("Cliente").setAutoWidth(true);
-        recentAdsGrid.addColumn(TrafficAdTask::getTitle).setHeader("Título").setFlexGrow(1);
+                .setHeader("Cliente")
+                .setAutoWidth(true);
+
+        recentAdsGrid.addColumn(TrafficAdTask::getTitle)
+                .setHeader("Título")
+                .setFlexGrow(1);
+
         recentAdsGrid.addColumn(task -> task.getStatus() != null ? task.getStatus().getLabel() : "—")
-                .setHeader("Status").setAutoWidth(true);
+                .setHeader("Status")
+                .setAutoWidth(true);
     }
 
     private void configureRecentNotificationsGrid() {
-        recentNotificationsGrid.addColumn(AppNotification::getTitle).setHeader("Título").setAutoWidth(true);
+        recentNotificationsGrid.addColumn(AppNotification::getTitle)
+                .setHeader("Título")
+                .setAutoWidth(true);
+
         recentNotificationsGrid.addColumn(notification -> valueOrDash(notification.getTargetSector()))
-                .setHeader("Setor").setAutoWidth(true);
+                .setHeader("Setor")
+                .setAutoWidth(true);
+
         recentNotificationsGrid.addColumn(notification -> notification.isRead() ? "Lida" : "Não lida")
-                .setHeader("Status").setAutoWidth(true);
+                .setHeader("Status")
+                .setAutoWidth(true);
     }
 
     private void refresh() {

@@ -6,6 +6,6 @@ public enum UserRole {
     MANAGEMENT,
     DESIGN,
     TRAFFIC,
-    SALES
+    COMMERCIAL,
 
 }

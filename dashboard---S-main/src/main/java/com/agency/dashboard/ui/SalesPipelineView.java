@@ -11,10 +11,12 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextArea;
@@ -26,7 +28,7 @@ import java.util.Comparator;
 import java.util.List;
 
 @Route(value = "sales", layout = MainLayout.class)
-@PageTitle("Pipeline Comercial")
+@PageTitle("Pipeline Comercial | Creative Ops")
 public class SalesPipelineView extends VerticalLayout {
 
     private final LeadRepository leadRepository;
@@ -56,16 +58,37 @@ public class SalesPipelineView extends VerticalLayout {
         setPadding(true);
         setSpacing(true);
 
-        H3 title = new H3("Pipeline Comercial");
+        add(buildHeader());
+        add(buildBoard());
+
+        expand(getComponentAt(1));
+        refresh();
+    }
+
+    private HorizontalLayout buildHeader() {
+        H2 title = new H2("Pipeline Comercial");
+        title.getStyle().set("margin", "0");
 
         Button newLeadButton = new Button("Novo lead", e -> openForm(new Lead()));
+        newLeadButton.getStyle()
+                .set("background", "var(--lumo-primary-color)")
+                .set("color", "white")
+                .set("border-radius", "10px");
+
         Button refreshButton = new Button("Atualizar", e -> refresh());
 
-        HorizontalLayout top = new HorizontalLayout(title, newLeadButton, refreshButton);
-        top.setWidthFull();
-        top.setAlignItems(Alignment.CENTER);
-        top.expand(title);
+        HorizontalLayout actions = new HorizontalLayout(newLeadButton, refreshButton);
+        actions.setSpacing(true);
 
+        HorizontalLayout header = new HorizontalLayout(title, actions);
+        header.setWidthFull();
+        header.setAlignItems(Alignment.CENTER);
+        header.setJustifyContentMode(JustifyContentMode.BETWEEN);
+
+        return header;
+    }
+
+    private Scroller buildBoard() {
         HorizontalLayout board = new HorizontalLayout(
                 createColumn("Lead", leadCol),
                 createColumn("Diagnóstico", diagCol),
@@ -75,29 +98,33 @@ public class SalesPipelineView extends VerticalLayout {
                 createColumn("Perdido", lostCol)
         );
 
-        board.setSizeFull();
+        board.setWidthFull();
+        board.setHeightFull();
         board.setSpacing(true);
 
-        add(top, board);
-        expand(board);
+        Scroller scroller = new Scroller(board);
+        scroller.setSizeFull();
 
-        refresh();
+        return scroller;
     }
 
     private VerticalLayout createColumn(String title, VerticalLayout column) {
         Span header = new Span(title);
-        header.getStyle().set("font-weight", "700");
+        header.getStyle()
+                .set("font-weight", "700")
+                .set("font-size", "0.95rem");
 
         VerticalLayout wrapper = new VerticalLayout(header, column);
-        wrapper.setWidth("16.6%");
+        wrapper.setWidth("320px");
         wrapper.setHeightFull();
         wrapper.setPadding(true);
         wrapper.setSpacing(true);
 
         wrapper.getStyle()
-                .set("background", "var(--lumo-contrast-5pct)")
-                .set("border-radius", "12px")
-                .set("border", "1px solid var(--lumo-contrast-10pct)");
+                .set("background", "var(--lumo-base-color)")
+                .set("border-radius", "14px")
+                .set("border", "1px solid var(--lumo-contrast-10pct)")
+                .set("box-shadow", "var(--lumo-box-shadow-xs)");
 
         return wrapper;
     }
@@ -140,9 +167,9 @@ public class SalesPipelineView extends VerticalLayout {
         Div card = new Div();
 
         card.getStyle()
-                .set("background", "white")
-                .set("padding", "12px")
-                .set("border-radius", "10px")
+                .set("background", "var(--lumo-base-color)")
+                .set("padding", "14px")
+                .set("border-radius", "12px")
                 .set("box-shadow", "var(--lumo-box-shadow-xs)")
                 .set("border", "1px solid var(--lumo-contrast-10pct)")
                 .set("cursor", "pointer");
@@ -152,7 +179,9 @@ public class SalesPipelineView extends VerticalLayout {
         content.setSpacing(true);
 
         Span name = new Span(lead.getName() != null ? lead.getName() : "Sem nome");
-        name.getStyle().set("font-weight", "700");
+        name.getStyle()
+                .set("font-weight", "700")
+                .set("font-size", "0.95rem");
 
         Span company = new Span("Empresa: " + valueOrDash(lead.getCompany()));
         Span phone = new Span("Telefone: " + valueOrDash(lead.getPhone()));
@@ -166,6 +195,7 @@ public class SalesPipelineView extends VerticalLayout {
 
         HorizontalLayout actions = new HorizontalLayout();
         actions.setSpacing(true);
+        actions.getStyle().set("flex-wrap", "wrap");
 
         Button backButton = new Button("←", e -> moveBack(lead));
         Button editButton = new Button("Editar", e -> openForm(lead));

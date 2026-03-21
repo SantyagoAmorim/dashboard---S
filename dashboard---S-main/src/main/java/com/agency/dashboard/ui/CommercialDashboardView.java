@@ -2,7 +2,11 @@ package com.agency.dashboard.ui;
 
 import com.agency.dashboard.domain.Lead;
 import com.agency.dashboard.domain.LeadStatus;
+import com.agency.dashboard.domain.User;
 import com.agency.dashboard.repo.LeadRepository;
+import com.agency.dashboard.security.AccessControl;
+import com.agency.dashboard.security.SecureView;
+import com.agency.dashboard.service.CurrentUserService;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
@@ -19,7 +23,7 @@ import java.util.stream.Collectors;
 
 @Route(value = "commercial-dashboard", layout = MainLayout.class)
 @PageTitle("Dashboard Comercial | Creative Ops")
-public class CommercialDashboardView extends VerticalLayout {
+public class CommercialDashboardView extends SecureView {
 
     private final LeadRepository leadRepository;
 
@@ -32,7 +36,11 @@ public class CommercialDashboardView extends VerticalLayout {
     private final Grid<Map.Entry<String, Long>> sourceGrid = new Grid<>();
     private final Grid<Lead> recentLeadsGrid = new Grid<>(Lead.class, false);
 
-    public CommercialDashboardView(LeadRepository leadRepository) {
+    public CommercialDashboardView(
+            LeadRepository leadRepository,
+            CurrentUserService currentUserService
+    ) {
+        super(currentUserService);
         this.leadRepository = leadRepository;
 
         setSizeFull();
@@ -47,6 +55,11 @@ public class CommercialDashboardView extends VerticalLayout {
         configureSourceGrid();
         configureRecentGrid();
         refresh();
+    }
+
+    @Override
+    protected boolean hasAccess(User user) {
+        return AccessControl.canAccessCommercial(user);
     }
 
     private Component buildKpiRow() {
@@ -124,7 +137,7 @@ public class CommercialDashboardView extends VerticalLayout {
                 .setHeader("Empresa")
                 .setAutoWidth(true);
 
-        recentLeadsGrid.addColumn(lead -> lead.getStatus() != null ? lead.getStatus().getLabel() : "—")
+        recentLeadsGrid.addColumn(lead -> lead.getStatus() != null ? lead.getStatus().name() : "—")
                 .setHeader("Status")
                 .setAutoWidth(true);
 

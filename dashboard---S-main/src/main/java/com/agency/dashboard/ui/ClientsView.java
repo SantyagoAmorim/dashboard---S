@@ -5,10 +5,9 @@ import com.agency.dashboard.domain.ClientPlan;
 import com.agency.dashboard.domain.ClientSector;
 import com.agency.dashboard.domain.Task;
 import com.agency.dashboard.repo.ClientRepository;
-import com.agency.dashboard.repo.OnboardingTaskRepository;
 import com.agency.dashboard.repo.TaskRepository;
-import com.agency.dashboard.repo.TrafficAdTaskRepository;
 import com.agency.dashboard.service.OnboardingService;
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -33,61 +32,96 @@ public class ClientsView extends VerticalLayout {
 
     private final ClientRepository clientRepository;
     private final TaskRepository taskRepository;
-    private final OnboardingTaskRepository onboardingTaskRepository;
-    private final TrafficAdTaskRepository trafficAdTaskRepository;
     private final OnboardingService onboardingService;
-
     private final Grid<Client> grid = new Grid<>(Client.class, false);
 
     public ClientsView(
             ClientRepository clientRepository,
             TaskRepository taskRepository,
-            OnboardingService onboardingService,
-            OnboardingTaskRepository onboardingTaskRepository,
-            TrafficAdTaskRepository trafficAdTaskRepository
+            OnboardingService onboardingService
     ) {
         this.clientRepository = clientRepository;
         this.taskRepository = taskRepository;
         this.onboardingService = onboardingService;
-        this.onboardingTaskRepository = onboardingTaskRepository;
-        this.trafficAdTaskRepository = trafficAdTaskRepository;
 
         setSizeFull();
         setPadding(true);
         setSpacing(true);
 
+        add(buildHeader());
+        add(buildGridCard());
+
+        configureGrid();
+        refreshGrid();
+    }
+
+    private Component buildHeader() {
         H2 title = new H2("Gestão de Clientes");
+        title.getStyle().set("margin", "0");
 
         Button newClientButton = new Button("Novo cliente", event -> openForm(new Client()));
+        newClientButton.getStyle()
+                .set("background", "var(--lumo-primary-color)")
+                .set("color", "white")
+                .set("border-radius", "10px");
 
         HorizontalLayout header = new HorizontalLayout(title, newClientButton);
         header.setWidthFull();
         header.setJustifyContentMode(JustifyContentMode.BETWEEN);
         header.setAlignItems(Alignment.CENTER);
 
-        configureGrid();
+        return header;
+    }
 
-        add(header, grid);
-        refreshGrid();
+    private Component buildGridCard() {
+        VerticalLayout wrapper = new VerticalLayout(new H2("Lista de clientes"), grid);
+        wrapper.setSizeFull();
+        wrapper.setPadding(true);
+        wrapper.setSpacing(true);
+
+        wrapper.getStyle()
+                .set("border", "1px solid var(--lumo-contrast-10pct)")
+                .set("border-radius", "12px")
+                .set("box-shadow", "var(--lumo-box-shadow-xs)");
+
+        return wrapper;
     }
 
     private void configureGrid() {
         grid.setSizeFull();
 
-        grid.addColumn(Client::getName).setHeader("Cliente").setAutoWidth(true);
-        grid.addColumn(client -> valueOrDash(client.getCompany())).setHeader("Empresa").setAutoWidth(true);
+        grid.addColumn(Client::getName)
+                .setHeader("Cliente")
+                .setAutoWidth(true)
+                .setFlexGrow(1);
+
+        grid.addColumn(client -> valueOrDash(client.getCompany()))
+                .setHeader("Empresa")
+                .setAutoWidth(true);
+
         grid.addColumn(client -> valueOrDash(client.getPlan() != null ? client.getPlan().getLabel() : null))
                 .setHeader("Plano")
                 .setAutoWidth(true);
+
         grid.addColumn(client -> valueOrDash(client.getSector() != null ? client.getSector().name() : null))
                 .setHeader("Setor")
                 .setAutoWidth(true);
-        grid.addColumn(client -> valueOrDash(client.getSquad())).setHeader("Squad").setAutoWidth(true);
-        grid.addColumn(client -> valueOrDash(client.getAccountManager())).setHeader("Gestor").setAutoWidth(true);
+
+        grid.addColumn(client -> valueOrDash(client.getSquad()))
+                .setHeader("Squad")
+                .setAutoWidth(true);
+
+        grid.addColumn(client -> valueOrDash(client.getAccountManager()))
+                .setHeader("Gestor")
+                .setAutoWidth(true);
+
         grid.addColumn(client -> client.isOnboardingCompleted() ? "Concluído" : "Pendente")
                 .setHeader("Onboarding")
                 .setAutoWidth(true);
-        grid.addColumn(client -> client.getOnboardingMeetingDate() != null ? client.getOnboardingMeetingDate().toString() : "—")
+
+        grid.addColumn(client -> client.getOnboardingMeetingDate() != null
+                        ? client.getOnboardingMeetingDate().toString()
+                        : "—")
                 .setHeader("Reunião alinhamento")
                 .setAutoWidth(true);
 
@@ -100,7 +134,7 @@ public class ClientsView extends VerticalLayout {
 
     private void openForm(Client client) {
         Dialog dialog = new Dialog();
-        dialog.setWidth("900px");
+        dialog.setWidth("950px");
 
         TextField name = new TextField("Nome do cliente");
         TextField company = new TextField("Empresa");
@@ -194,13 +228,13 @@ public class ClientsView extends VerticalLayout {
                 taskRepository.save(task);
 
                 if (isNewClient) {
-                    Notification.show("Cliente criado, pipeline de onboarding gerado e tarefa automática de acompanhamento criada.");
+                    Notification.show("Cliente criado, pipeline de onboarding gerado e tarefa automática criada.");
                 } else {
-                    Notification.show("Cliente atualizado, pipeline conferido e tarefa automática de acompanhamento criada.");
+                    Notification.show("Cliente atualizado e tarefa automática criada.");
                 }
             } else {
                 if (isNewClient) {
-                    Notification.show("Cliente criado e pipeline de onboarding gerado com sucesso.");
+                    Notification.show("Cliente criado com sucesso.");
                 } else {
                     Notification.show("Cliente salvo com sucesso.");
                 }
@@ -212,11 +246,7 @@ public class ClientsView extends VerticalLayout {
 
         Button deleteButton = new Button("Excluir", event -> {
             if (client.getId() != null) {
-                onboardingTaskRepository.deleteByClient(client);
-                trafficAdTaskRepository.deleteByClient(client);
-                taskRepository.deleteByClient(client);
                 clientRepository.delete(client);
-
                 refreshGrid();
                 Notification.show("Cliente excluído.");
             }

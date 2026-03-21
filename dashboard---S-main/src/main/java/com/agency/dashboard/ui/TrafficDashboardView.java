@@ -4,8 +4,12 @@ import com.agency.dashboard.domain.OnboardingTask;
 import com.agency.dashboard.domain.OnboardingTaskStatus;
 import com.agency.dashboard.domain.TrafficAdStatus;
 import com.agency.dashboard.domain.TrafficAdTask;
+import com.agency.dashboard.domain.User;
 import com.agency.dashboard.repo.OnboardingTaskRepository;
 import com.agency.dashboard.repo.TrafficAdTaskRepository;
+import com.agency.dashboard.security.AccessControl;
+import com.agency.dashboard.security.SecureView;
+import com.agency.dashboard.service.CurrentUserService;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
@@ -22,7 +26,7 @@ import java.util.stream.Collectors;
 
 @Route(value = "traffic-dashboard", layout = MainLayout.class)
 @PageTitle("Dashboard do Tráfego | Creative Ops")
-public class TrafficDashboardView extends VerticalLayout {
+public class TrafficDashboardView extends SecureView {
 
     private final OnboardingTaskRepository onboardingTaskRepository;
     private final TrafficAdTaskRepository trafficAdTaskRepository;
@@ -37,8 +41,10 @@ public class TrafficDashboardView extends VerticalLayout {
 
     public TrafficDashboardView(
             OnboardingTaskRepository onboardingTaskRepository,
-            TrafficAdTaskRepository trafficAdTaskRepository
+            TrafficAdTaskRepository trafficAdTaskRepository,
+            CurrentUserService currentUserService
     ) {
+        super(currentUserService);
         this.onboardingTaskRepository = onboardingTaskRepository;
         this.trafficAdTaskRepository = trafficAdTaskRepository;
 
@@ -54,6 +60,11 @@ public class TrafficDashboardView extends VerticalLayout {
         configureRankingGrid();
         configureRecentAdsGrid();
         refresh();
+    }
+
+    @Override
+    protected boolean hasAccess(User user) {
+        return AccessControl.canAccessTraffic(user);
     }
 
     private Component buildKpiRow() {

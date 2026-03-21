@@ -1,5 +1,7 @@
 package com.agency.dashboard.ui;
 
+import com.agency.dashboard.domain.User;
+import com.agency.dashboard.domain.UserRole;
 import com.agency.dashboard.service.CurrentUserService;
 import com.agency.dashboard.service.UserService;
 import com.vaadin.flow.component.UI;
@@ -9,8 +11,10 @@ import com.vaadin.flow.component.login.LoginI18n;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.RouteAlias;
 
 @Route("login")
+@RouteAlias("")
 @PageTitle("Login | Creative Ops")
 public class LoginView extends VerticalLayout {
 
@@ -37,13 +41,24 @@ public class LoginView extends VerticalLayout {
             var userOpt = userService.authenticate(event.getUsername(), event.getPassword());
 
             if (userOpt.isPresent()) {
-                currentUserService.login(userOpt.get());
-                UI.getCurrent().navigate("");
+                User user = userOpt.get();
+                currentUserService.login(user);
+
+                UI.getCurrent().navigate(getDashboardRoute(user.getRole()));
             } else {
                 loginForm.setError(true);
             }
         });
 
         add(title, loginForm);
+    }
+
+    private String getDashboardRoute(UserRole role) {
+        return switch (role) {
+            case DESIGN -> "design-dashboard";
+            case TRAFFIC -> "traffic-dashboard";
+            case COMMERCIAL -> "commercial-dashboard";
+            case MANAGEMENT, ADMIN -> "management-dashboard";
+        };
     }
 }
